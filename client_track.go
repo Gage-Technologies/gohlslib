@@ -33,19 +33,19 @@ func (t *clientTrack) handleData(
 	}
 
 	// synchronize time
-	elapsed := time.Since(t.startRTC)
-	if dts > elapsed {
-		diff := dts - elapsed
-		if diff > clientMaxDTSRTCDiff {
-			return fmt.Errorf("difference between DTS and RTC is too big")
-		}
+	// elapsed := time.Since(t.startRTC)
+	// if dts > elapsed {
+	// 	diff := dts - elapsed
+	// 	if diff > clientMaxDTSRTCDiff {
+	// 		return fmt.Errorf("difference between DTS and RTC is too big")
+	// 	}
 
-		select {
-		// case <-time.After(diff):
-		case <-ctx.Done():
-			return fmt.Errorf("terminated")
-		}
-	}
+	// 	select {
+	// 	case <-time.After(diff):
+	// 	case <-ctx.Done():
+	// 		return fmt.Errorf("terminated")
+	// 	}
+	// }
 
 	t.lastAbsoluteTime = ntp
 	t.onData(pts, dts, data)
