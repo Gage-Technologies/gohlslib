@@ -2,7 +2,6 @@ package gohlslib
 
 import (
 	"context"
-	"fmt"
 	"time"
 )
 
