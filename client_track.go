@@ -41,7 +41,7 @@ func (t *clientTrack) handleData(
 		}
 
 		select {
-		case <-time.After(diff):
+		// case <-time.After(diff):
 		case <-ctx.Done():
 			return fmt.Errorf("terminated")
 		}
