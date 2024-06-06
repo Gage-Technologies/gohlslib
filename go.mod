@@ -10,6 +10,7 @@ require (
 
 require (
 	github.com/abema/go-mp4 v1.2.0 // indirect
+	github.com/andybalholm/brotli v1.1.0
 	github.com/asticode/go-astikit v0.30.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/google/uuid v1.3.0 // indirect

@@ -1,6 +1,9 @@
 package gohlslib
 
 import (
+	"bytes"
+	"compress/flate"
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"io"
@@ -11,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/andybalholm/brotli"
 	"github.com/bluenviron/gohlslib/pkg/codecs"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
@@ -73,10 +77,39 @@ y++U32uuSFiXDcSLarfIsE992MEJLSAynbF1Rsgsr3gXbGiuToJRyxbIeVy7gwzD
 -----END RSA PRIVATE KEY-----
 `)
 
+const testExtM3U8v3 = `#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-ALLOW-CACHE:NO
+#EXT-X-TARGETDURATION:2
+#EXT-X-MEDIA-SEQUENCE:0
+#EXT-X-PLAYLIST-TYPE:VOD
+#EXT-X-PROGRAM-DATE-TIME:2015-02-05T01:02:02Z
+#EXTINF:1,
+segment1.ts?key=val
+#EXTINF:1,
+segment2.ts
+#EXT-X-ENDLIST
+`
+
+const testExtM3U8v7 = `#EXTM3U
+#EXT-X-VERSION:7
+#EXT-X-MEDIA-SEQUENCE:20
+#EXT-X-PLAYLIST-TYPE:VOD
+#EXT-X-INDEPENDENT-SEGMENTS
+#EXT-X-TARGETDURATION:2
+#EXT-X-MAP:URI="init.mp4?key=val"
+#EXT-X-PROGRAM-DATE-TIME:2015-02-05T01:02:02Z
+#EXTINF:2,
+segment1.mp4?key=val
+#EXTINF:2,
+segment2.mp4
+#EXT-X-ENDLIST
+`
+
 const (
 	testHeaderKey   = "test-header"
 	testHeaderValue = "test-value"
-	testCookieName = "test-cookie"
+	testCookieName  = "test-cookie"
 	testCookieValue = "test-value"
 )
 
@@ -120,7 +153,7 @@ func mp4ToWriter(i marshaler, w io.Writer) error {
 
 func TestClient(t *testing.T) {
 	for _, mode := range []string{"plain", "tls"} {
-		for _, format := range []string{"mpegts", "fmp4"} {
+		for _, format := range []string{"mpegts", "fmp4", "gzip_mpegts", "deflate_mpegts", "brotli_mpegts"} {
 			t.Run(mode+"_"+format, func(t *testing.T) {
 				httpServ := &http.Server{
 					Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -143,22 +176,49 @@ func TestClient(t *testing.T) {
 							return
 						}
 
-						if format == "mpegts" {
+						if format == "mpegts" || format == "gzip_mpegts" || format == "deflate_mpegts" || format == "brotli_mpegts" {
 							switch {
 							case r.Method == http.MethodGet && r.URL.Path == "/stream.m3u8":
 								w.Header().Set("Content-Type", `application/vnd.apple.mpegurl`)
-								w.Write([]byte("#EXTM3U\n" +
-									"#EXT-X-VERSION:3\n" +
-									"#EXT-X-ALLOW-CACHE:NO\n" +
-									"#EXT-X-TARGETDURATION:2\n" +
-									"#EXT-X-MEDIA-SEQUENCE:0\n" +
-									"#EXT-X-PLAYLIST-TYPE:VOD\n" +
-									"#EXT-X-PROGRAM-DATE-TIME:2015-02-05T01:02:02Z\n" +
-									"#EXTINF:1,\n" +
-									"segment1.ts?key=val\n" +
-									"#EXTINF:1,\n" +
-									"segment2.ts\n" +
-									"#EXT-X-ENDLIST\n"))
+								if format == "gzip_mpegts" {
+									w.Header().Set("Content-Encoding", "gzip")
+								} else if format == "deflate_mpegts" {
+									w.Header().Set("Content-Encoding", "deflate")
+								} else if format == "brotli_mpegts" {
+									w.Header().Set("Content-Encoding", "br")
+								}
+
+								var data []byte
+								switch format {
+								case "gzip_mpegts":
+									var buf bytes.Buffer
+									gz := gzip.NewWriter(&buf)
+									_, err := gz.Write([]byte(testExtM3U8v3))
+									require.NoError(t, err)
+									err = gz.Close()
+									require.NoError(t, err)
+									data = buf.Bytes()
+								case "deflate_mpegts":
+									var buf bytes.Buffer
+									df, err := flate.NewWriter(&buf, 9)
+									require.NoError(t, err)
+									_, err = df.Write([]byte(testExtM3U8v3))
+									require.NoError(t, err)
+									err = df.Close()
+									require.NoError(t, err)
+									data = buf.Bytes()
+								case "brotli_mpegts":
+									var buf bytes.Buffer
+									br := brotli.NewWriter(&buf)
+									_, err := br.Write([]byte(testExtM3U8v3))
+									require.NoError(t, err)
+									err = br.Close()
+									require.NoError(t, err)
+									data = buf.Bytes()
+								default:
+									data = []byte(testExtM3U8v3)
+								}
+								w.Write(data)
 
 							case r.Method == http.MethodGet && r.URL.Path == "/segment1.ts":
 								q, err := url.ParseQuery(r.URL.RawQuery)
@@ -253,19 +313,7 @@ func TestClient(t *testing.T) {
 							switch {
 							case r.Method == http.MethodGet && r.URL.Path == "/stream.m3u8":
 								w.Header().Set("Content-Type", `application/vnd.apple.mpegurl`)
-								w.Write([]byte("#EXTM3U\n" +
-									"#EXT-X-VERSION:7\n" +
-									"#EXT-X-MEDIA-SEQUENCE:20\n" +
-									"#EXT-X-PLAYLIST-TYPE:VOD\n" +
-									"#EXT-X-INDEPENDENT-SEGMENTS\n" +
-									"#EXT-X-TARGETDURATION:2\n" +
-									"#EXT-X-MAP:URI=\"init.mp4?key=val\"\n" +
-									"#EXT-X-PROGRAM-DATE-TIME:2015-02-05T01:02:02Z\n" +
-									"#EXTINF:2,\n" +
-									"segment1.mp4?key=val\n" +
-									"#EXTINF:2,\n" +
-									"segment2.mp4\n" +
-									"#EXT-X-ENDLIST\n"))
+								w.Write([]byte(testExtM3U8v7))
 
 							case r.Method == http.MethodGet && r.URL.Path == "/init.mp4":
 								q, err := url.ParseQuery(r.URL.RawQuery)

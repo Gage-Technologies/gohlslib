@@ -1,6 +1,8 @@
 package gohlslib
 
 import (
+	"compress/flate"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
@@ -9,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/andybalholm/brotli"
 	"github.com/bluenviron/gohlslib/pkg/playlist"
 )
 
@@ -52,8 +55,8 @@ func dateTimeOfPreloadHint(pl *playlist.Media) *time.Time {
 type clientStreamDownloader struct {
 	isLeading                bool
 	httpClient               *http.Client
-	headers                 map[string]string
-	cookies                 []*http.Cookie
+	headers                  map[string]string
+	cookies                  []*http.Cookie
 	onDownloadStreamPlaylist ClientOnDownloadStreamPlaylistFunc
 	onDownloadSegment        ClientOnDownloadSegmentFunc
 	onDownloadPart           ClientOnDownloadPartFunc
@@ -230,7 +233,6 @@ func (d *clientStreamDownloader) downloadPreloadHint(
 		req.AddCookie(cookie)
 	}
 
-
 	if preloadHint.ByteRangeLength != nil {
 		req.Header.Set("Range", "bytes="+strconv.FormatUint(preloadHint.ByteRangeStart, 10)+
 			"-"+strconv.FormatUint(preloadHint.ByteRangeStart+*preloadHint.ByteRangeLength-1, 10))
@@ -246,7 +248,25 @@ func (d *clientStreamDownloader) downloadPreloadHint(
 		return nil, fmt.Errorf("bad status code: %d", res.StatusCode)
 	}
 
-	byts, err := io.ReadAll(res.Body)
+	// Check headers to see if the content is compressed with gzip, deflate or brotli
+	contentEncoding := res.Header.Get("Content-Encoding")
+	var reader io.Reader = res.Body
+
+	switch contentEncoding {
+	case "gzip":
+		reader, err = gzip.NewReader(res.Body)
+		if err != nil {
+			return nil, err
+		}
+		defer reader.(*gzip.Reader).Close()
+	case "deflate":
+		reader = flate.NewReader(res.Body)
+		defer reader.(io.ReadCloser).Close()
+	case "br":
+		reader = brotli.NewReader(res.Body)
+	}
+
+	byts, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
 	}
@@ -301,7 +321,25 @@ func (d *clientStreamDownloader) downloadSegment(
 		return nil, fmt.Errorf("bad status code: %d", res.StatusCode)
 	}
 
-	byts, err := io.ReadAll(res.Body)
+	// Check headers to see if the content is compressed with gzip, deflate or brotli
+	contentEncoding := res.Header.Get("Content-Encoding")
+	var reader io.Reader = res.Body
+
+	switch contentEncoding {
+	case "gzip":
+		reader, err = gzip.NewReader(res.Body)
+		if err != nil {
+			return nil, err
+		}
+		defer reader.(*gzip.Reader).Close()
+	case "deflate":
+		reader = flate.NewReader(res.Body)
+		defer reader.(io.ReadCloser).Close()
+	case "br":
+		reader = brotli.NewReader(res.Body)
+	}
+
+	byts, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
 	}

@@ -7,6 +7,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"compress/gzip"
+	"compress/flate"
+	"github.com/andybalholm/brotli"
 
 	"github.com/bluenviron/gohlslib/pkg/playlist"
 )
@@ -72,7 +75,26 @@ func clientDownloadPlaylist(
 		return nil, fmt.Errorf("bad status code: %d", res.StatusCode)
 	}
 
-	byts, err := io.ReadAll(res.Body)
+	// Check headers to see if the content is compressed with gzip, deflate or brotli
+	contentEncoding := res.Header.Get("Content-Encoding")
+	var reader io.Reader = res.Body
+
+	switch contentEncoding {
+	case "gzip":
+		reader, err = gzip.NewReader(res.Body)
+		if err != nil {
+			return nil, err
+		}
+		defer reader.(*gzip.Reader).Close()
+	case "deflate":
+		reader = flate.NewReader(res.Body)
+		defer reader.(io.ReadCloser).Close()
+	case "br":
+		reader = brotli.NewReader(res.Body)
+	}
+
+	// Read the response body
+	byts, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
 	}
