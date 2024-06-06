@@ -90,6 +90,9 @@ type Client struct {
 	// Max number of segments in the queue.
 	// It defaults to 1.
 	MaxSegmentQueueSize int
+	// Restrict absolute time to viewing speed.
+	// If true, the client will try to synchronize the absolute time with the viewing speed of the track.
+	RestrictAbsoluteTimeToViewingSpeed *bool
 
 	//
 	// callbacks (all optional)
@@ -130,6 +133,10 @@ func (c *Client) Start() error {
 	}
 	if c.MaxSegmentQueueSize == 0 {
 		c.MaxSegmentQueueSize = 1
+	}
+	if c.RestrictAbsoluteTimeToViewingSpeed == nil {
+		t := true
+		c.RestrictAbsoluteTimeToViewingSpeed = &t
 	}
 	if c.OnTracks == nil {
 		c.OnTracks = func(_ []*Track) error {
@@ -272,8 +279,9 @@ func (c *Client) setTracks(tracks []*Track) (map[*Track]*clientTrack, error) {
 	c.tracks = make(map[*Track]*clientTrack)
 	for _, track := range tracks {
 		c.tracks[track] = &clientTrack{
-			track:  track,
-			onData: func(_, _ time.Duration, _ [][]byte) {},
+			track:                  track,
+			onData:                 func(_, _ time.Duration, _ [][]byte) {},
+			restrictToViewingSpeed: *c.RestrictAbsoluteTimeToViewingSpeed,
 		}
 	}
 
