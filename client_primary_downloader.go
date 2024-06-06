@@ -169,6 +169,7 @@ type clientPrimaryDownloader struct {
 	setTracks                 func([]*Track) (map[*Track]*clientTrack, error)
 	setLeadingTimeConv        func(ts clientTimeConv)
 	getLeadingTimeConv        func(ctx context.Context) (clientTimeConv, bool)
+	maxSegmentQueueSize      int
 
 	clientTracks map[*Track]*clientTrack
 
@@ -220,6 +221,7 @@ func (d *clientPrimaryDownloader) run(ctx context.Context) error {
 			setStreamEnded:           d.setStreamEnded,
 			setLeadingTimeConv:       d.setLeadingTimeConv,
 			getLeadingTimeConv:       d.getLeadingTimeConv,
+			maxSegmentQueueSize:      d.maxSegmentQueueSize,
 		}
 		d.rp.add(ds)
 		streamCount++
@@ -252,6 +254,7 @@ func (d *clientPrimaryDownloader) run(ctx context.Context) error {
 			setStreamEnded:           d.setStreamEnded,
 			setLeadingTimeConv:       d.setLeadingTimeConv,
 			getLeadingTimeConv:       d.getLeadingTimeConv,
+			maxSegmentQueueSize:      d.maxSegmentQueueSize,
 		}
 		d.rp.add(ds)
 		streamCount++
@@ -284,6 +287,7 @@ func (d *clientPrimaryDownloader) run(ctx context.Context) error {
 					setLeadingTimeConv:       d.setLeadingTimeConv,
 					getLeadingTimeConv:       d.getLeadingTimeConv,
 					setStreamEnded:           d.setStreamEnded,
+					maxSegmentQueueSize:      d.maxSegmentQueueSize,
 				}
 				d.rp.add(ds)
 				streamCount++

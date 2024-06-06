@@ -473,6 +473,7 @@ func TestClient(t *testing.T) {
 							Value: testCookieValue,
 						},
 					},
+					MaxSegmentQueueSize: 16,
 					OnTracks: func(tracks []*Track) error {
 						var sps []byte
 						var pps []byte

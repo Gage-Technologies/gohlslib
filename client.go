@@ -87,6 +87,9 @@ type Client struct {
 	Cookies []*http.Cookie
 	// Proxy to be used for requests.
 	Proxy *url.URL
+	// Max number of segments in the queue.
+	// It defaults to 1.
+	MaxSegmentQueueSize int
 
 	//
 	// callbacks (all optional)
@@ -124,6 +127,9 @@ type Client struct {
 func (c *Client) Start() error {
 	if c.HTTPClient == nil {
 		c.HTTPClient = http.DefaultClient
+	}
+	if c.MaxSegmentQueueSize == 0 {
+		c.MaxSegmentQueueSize = 1
 	}
 	if c.OnTracks == nil {
 		c.OnTracks = func(_ []*Track) error {
@@ -246,6 +252,7 @@ func (c *Client) runInner() error {
 		setTracks:                 c.setTracks,
 		setLeadingTimeConv:        c.setLeadingTimeConv,
 		getLeadingTimeConv:        c.getLeadingTimeConv,
+		maxSegmentQueueSize:       c.MaxSegmentQueueSize,
 	}
 	c.primaryDownloader.initialize()
 	rp.add(c.primaryDownloader)

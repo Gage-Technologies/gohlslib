@@ -68,6 +68,7 @@ type clientStreamDownloader struct {
 	setStreamEnded           func(context.Context)
 	setLeadingTimeConv       func(clientTimeConv)
 	getLeadingTimeConv       func(context.Context) (clientTimeConv, bool)
+	maxSegmentQueueSize      int
 
 	segmentQueue *clientSegmentQueue
 	curSegmentID *int
@@ -166,7 +167,7 @@ func (d *clientStreamDownloader) runTraditional(ctx context.Context) error {
 			return err
 		}
 
-		ok := d.segmentQueue.waitUntilSizeIsBelow(ctx, 1)
+		ok := d.segmentQueue.waitUntilSizeIsBelow(ctx, d.maxSegmentQueueSize)
 		if !ok {
 			return fmt.Errorf("terminated")
 		}
